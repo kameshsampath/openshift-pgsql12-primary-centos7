@@ -1,0 +1,140 @@
+#!/bin/bash
+# The MIT License (MIT)
+#
+# Copyright (c) 2019 Jesper Pedersen <jesper.pedersen@redhat.com>
+#
+# Permission is hereby granted, free of charge, to any person obtaining
+# a copy of this software and associated documentation files (the "Software"),
+# to deal in the Software without restriction, including without limitation
+# the rights to use, copy, modify, merge, publish, distribute, sublicense,
+# and/or sell copies of the Software, and to permit persons to whom the Software
+# is furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in
+# all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+# INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+# PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+# HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION
+# OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+# SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+#
+
+REGEX_IDENTIFIER='^[a-zA-Z_][a-zA-Z0-9_]*$'
+REGEX_PASSWORD='^[a-zA-Z0-9_~!@#$%^&*()-=<>,.?;:|]+$'
+REGEX_NUMBER='^[1-9][0-9]*$'
+
+function usage() {
+  if [ $# == 1 ]; then
+    echo >&2 "error: $1"
+  fi
+
+  cat >&2 <<EOF
+Required environment variables:
+  PG_DATABASE ($PG_DATABASE) (regex: '$REGEX_IDENTIFIER')
+  PG_USER_NAME ($PG_USER_NAME) (regex: '$REGEX_IDENTIFIER')
+  PG_USER_PASSWORD ($PG_USER_PASSWORD) (regex: '$REGEX_PASSWORD')
+  PG_NETWORK_MASK ($PG_NETWORK_MASK)
+
+Optional environment variables:
+  PG_MAX_CONNECTIONS ($PG_MAX_CONNECTIONS) (default: 100) (regex: '$REGEX_NUMBER')
+  PG_SHARED_BUFFERS ($PG_SHARED_BUFFERS) (default: 256 MB) (regex: '$REGEX_NUMBER')
+  PG_WORK_MEM ($PG_WORK_MEM) (default: 8 MB) (regex: '$REGEX_NUMBER')
+  PG_EFFECTIVE_IO ($PG_EFFECTIVE_IO) (default: 128) (regex: '$REGEX_NUMBER')
+  PG_EFFECTIVE_CACHE_SIZE ($PG_EFFECTIVE_CACHE_SIZE) (default: 1 GB) (regex: '$REGEX_NUMBER')
+  PG_MAX_WAL_SIZE ($PG_MAX_WAL_SIZE) (default: 1 GB) (regex: '$REGEX_NUMBER')
+  PG_PASSWORD_ENCRYPTION ($PG_PASSWORD_ENCRYPTION) (default: md5)
+
+For more information visit https://github.com/jesperpedersen/openshift-pgsql
+EOF
+  exit 1
+}
+
+# Generate passwd file based on current uid
+function generate_passwd_file() {
+  export USER_ID=$(id -u)
+  export GROUP_ID=$(id -g)
+  grep -v ^postgres /etc/passwd > "$HOME/passwd"
+  echo "postgres:x:${USER_ID}:${GROUP_ID}:PostgreSQL Server:/pgdata:/bin/bash" >> "$HOME/passwd"
+  export LD_PRELOAD='/usr/lib64/libnss_wrapper.so'
+  export NSS_WRAPPER_PASSWD=$HOME/passwd
+  export NSS_WRAPPER_GROUP=/etc/group
+}
+
+generate_passwd_file
+
+if [ ! -f /pgdata/data/PG_VERSION ]; then
+    export PG_MAX_CONNECTIONS=${PG_MAX_CONNECTIONS:-100}
+    export PG_SHARED_BUFFERS=${PG_SHARED_BUFFERS:-256}
+    export PG_WORK_MEM=${PG_WORK_MEM:-1536}
+    export PG_EFFECTIVE_IO=${PG_EFFECTIVE_IO:-128}
+    export PG_EFFECTIVE_CACHE_SIZE=${PG_EFFECTIVE_CACHE_SIZE:-1}
+    export PG_MAX_WAL_SIZE=${PG_MAX_WAL_SIZE:-1}
+    export PG_PASSWORD_ENCRYPTION=${PG_PASSWORD_ENCRYPTION:-md5}
+
+    export PG_DATABASE=${PG_DATABASE}
+    export PG_DATABASE_ENCODING=${PG_DATABASE_ENCODING:-UTF8}
+    export PG_USER_NAME=${PG_USER_NAME}
+    export PG_USER_PASSWORD=${PG_USER_PASSWORD}
+    export PG_NETWORK_MASK=${PG_NETWORK_MASK}
+
+    if [ -z "${PG_DATABASE}" ] ||
+       [ -z "${PG_USER_NAME}" ] || [ -z "${PG_USER_PASSWORD}" ] ||
+       [ -z "${PG_NETWORK_MASK}" ]; then
+        echo "PG_DATABASE, PG_USER_NAME, PG_USER_PASSWORD and PG_NETWORK_MASK needs to be defined."
+        exit 1
+    fi
+    
+    [[ "${PG_DATABASE}" =~ $REGEX_IDENTIFIER ]] || usage
+    [[ "${PG_USER_NAME}" =~ $REGEX_IDENTIFIER ]] || usage
+    [[ "${PG_USER_PASSWORD}" =~ $REGEX_PASSWORD ]] || usage
+
+    [[ "${PG_MAX_CONNECTIONS}" =~ $REGEX_NUMBER ]] || usage
+    [[ "${PG_SHARED_BUFFERS}" =~ $REGEX_NUMBER ]] || usage
+    [[ "${PG_WORK_MEM}" =~ $REGEX_NUMBER ]] || usage
+    [[ "${PG_EFFECTIVE_IO}" =~ $REGEX_NUMBER ]] || usage
+    [[ "${PG_EFFECTIVE_CACHE_SIZE}" =~ $REGEX_NUMBER ]] || usage
+    [[ "${PG_MAX_WAL_SIZE}" =~ $REGEX_NUMBER ]] || usage
+
+    [ ${#PG_DATABASE} -le 63 ] || usage "Database name too long (maximum 63 characters)"
+    [ ${#PG_USER_NAME} -le 63 ] || usage "PostgreSQL username too long (maximum 63 characters)"
+
+    mkdir /pgdata/data
+    mkdir /pgwal/data
+    chmod 700 /pgdata/data
+    chmod 700 /pgwal/data
+
+    /usr/pgsql-12/bin/initdb -k -X /pgwal/data /pgdata/data
+
+    sed -i "s/PG_MAX_CONNECTIONS/$PG_MAX_CONNECTIONS/g" /conf/postgresql.conf
+    sed -i "s/PG_SHARED_BUFFERS/$PG_SHARED_BUFFERS/g" /conf/postgresql.conf
+    sed -i "s/PG_WORK_MEM/$PG_WORK_MEM/g" /conf/postgresql.conf
+    sed -i "s/PG_EFFECTIVE_CACHE_SIZE/$PG_EFFECTIVE_CACHE_SIZE/g" /conf/postgresql.conf
+    sed -i "s/PG_EFFECTIVE_IO/$PG_EFFECTIVE_IO/g" /conf/postgresql.conf
+    sed -i "s/PG_MAX_WAL_SIZE/$PG_MAX_WAL_SIZE/g" /conf/postgresql.conf
+    sed -i "s/PG_PASSWORD_ENCRYPTION/$PG_PASSWORD_ENCRYPTION/g" /conf/postgresql.conf
+
+    sed -i "s/PG_DATABASE/$PG_DATABASE/g" /conf/pg_hba.conf
+    sed -i "s/PG_USER_NAME/$PG_USER_NAME/g" /conf/pg_hba.conf
+    sed -i "s/PG_NETWORK_MASK/$PG_NETWORK_MASK/g" /conf/pg_hba.conf
+    sed -i "s/PG_PASSWORD_ENCRYPTION/$PG_PASSWORD_ENCRYPTION/g" /conf/pg_hba.conf
+
+    cp /conf/postgresql.conf /pgdata/data
+    cp /conf/pg_hba.conf /pgdata/data
+
+    if [ -f /pgdata/data/server.key ]; then
+        chmod 0600 /pgdata/data/server.key
+    fi
+
+    sed -i "s/PG_DATABASE_ENCODING/$PG_DATABASE_ENCODING/g" /conf/setup.sql
+    sed -i "s/PG_DATABASE/$PG_DATABASE/g" /conf/setup.sql
+    sed -i "s/PG_USER_NAME/$PG_USER_NAME/g" /conf/setup.sql
+    sed -i "s/PG_USER_PASSWORD/$PG_USER_PASSWORD/g" /conf/setup.sql
+
+    /usr/pgsql-12/bin/pg_ctl -D /pgdata/data start
+    /usr/pgsql-12/bin/psql -q -f /conf/setup.sql postgres
+    /usr/pgsql-12/bin/pg_ctl -D /pgdata/data stop
+fi
+
+exec /usr/pgsql-12/bin/postgres -D /pgdata/data "$@"
