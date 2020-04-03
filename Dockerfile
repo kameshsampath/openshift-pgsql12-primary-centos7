@@ -51,6 +51,8 @@ RUN mkdir -p /conf /pgdata /pgwal
 
 COPY conf/* /conf/
 
+RUN usermod -a -G root postgres
+
 RUN /usr/libexec/fix-permissions /conf \
       && /usr/libexec/fix-permissions /pgdata \
       && /usr/libexec/fix-permissions /pgwal \
@@ -61,7 +63,6 @@ VOLUME ["/pgdata", "/pgwal"]
 EXPOSE 5432
 
 RUN /usr/libexec/fix-permissions ${APP_DATA}
-RUN usermod -a -G root postgres
 
 USER 26
 
