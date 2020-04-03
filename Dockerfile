@@ -61,8 +61,6 @@ VOLUME ["/pgdata", "/pgwal"]
 EXPOSE 5432
 
 RUN /usr/libexec/fix-permissions ${APP_DATA}
-RUN chown -R postgres:postgres /conf /pgdata /pgwal
-RUN chmod 700 /conf /pgdata /pgwal
 RUN usermod -a -G root postgres
 
 USER 26
