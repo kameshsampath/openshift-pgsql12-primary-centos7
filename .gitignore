@@ -1,0 +1,5 @@
+test/pgdata
+test/pgwal
+test/logs
+
+pgdata

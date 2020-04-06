@@ -19,14 +19,11 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 # SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #
-IMAGE_NAME = openshift-pgsql12-primary-centos7
+IMAGE_NAME = rhdevelopers/openshift-pgsql12-primary:centos7-monitoring
 
 .PHONY: build
 build:
 	docker build --no-cache -t $(IMAGE_NAME) .
-	docker tag openshift-pgsql12-primary-centos7 quay.io/redhatdemo/openshift-pgsql12-primary:centos7
-	docker tag openshift-pgsql12-primary-centos7 quay.io/redhatdemo/openshift-pgsql12-primary:latest
-	docker push quay.io/redhatdemo/openshift-pgsql12-primary:centos7
-	docker push quay.io/redhatdemo/openshift-pgsql12-primary:latest
+	
 
 

@@ -1,0 +1,11 @@
+log_destination = 'stderr'
+log_line_prefix = '%t [%p]: [%l-1] user=%u,db=%d '
+log_statement = 'none'
+log_duration = off
+log_min_duration_statement = 0
+log_checkpoints = on
+log_connections = on
+log_disconnections = on
+log_lock_waits = on
+log_temp_files = 0
+lc_messages = 'C'
