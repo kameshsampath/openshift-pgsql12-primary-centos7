@@ -40,7 +40,7 @@ ENV APP_DATA="/opt/app-root"
 COPY root/ /
 
 RUN rpm -Uvh https://dl.fedoraproject.org/pub/epel/epel-release-latest-7.noarch.rpm \
-      && rpm -Uvh https://download.postgresql.org/pub/repos/yum/12/redhat/rhel-7-x86_64/pgdg-redhat-repo-42.0-8.noarch.rpm \
+      && rpm -Uvh https://download.postgresql.org/pub/repos/yum/12/redhat/rhel-7-x86_64/pgdg-redhat-repo-latest.noarch.rpm  \
       && yum -y update \
       && yum -y install postgresql12 postgresql12-server postgresql12-contrib postgresql12-libs crontabs nss_wrapper gettext bind-utils \
       && yum -y clean all

@@ -24,6 +24,7 @@ IMAGE_NAME = rhdevelopers/openshift-pgsql12-primary:centos7-monitoring
 .PHONY: build
 build:
 	docker build --no-cache -t $(IMAGE_NAME) .
-	
+	docker tag rhdevelopers/openshift-pgsql12-primary:centos7-monitoring quay.io/rhdevelopers/openshift-pgsql12-primary:centos7-monitoring
+	docker push quay.io/rhdevelopers/openshift-pgsql12-primary:centos7-monitoring
 
 
