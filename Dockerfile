@@ -59,7 +59,8 @@ RUN /usr/libexec/fix-permissions /conf \
       && /usr/libexec/fix-permissions /pgwal \
       && /usr/libexec/fix-permissions /var/run/postgresql \
       && /usr/libexec/fix-permissions ${APP_DATA}
-RUN chmod 700 /conf /pgdata /pgwal
+
+#RUN chmod 700 /conf /pgdata /pgwal
 
 VOLUME ["/pgdata", "/pgwal"]
 
